@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template creates a VPC along with subnets, route tables, and an internet gateway.
+Metadata: 
+
+Parameters: 
+
+Mappings: 
+
+Conditions: 
+
+Resources:
+  EffulgencetechVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: name
+          Value: production
+
+  EffulgencetechIGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: name
+          Value: production-igw
+
+  EffulgencetechVPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref myVPC
+      InternetGatewayId: !Ref myInternetGateway
+
+  EffulgencetechVPCpubSN:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref EffulgencetechVPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: 'true'
+      AvailabilityZone: us-east-1a
+      Tags:
+        - Key: name
+          Value: production-public-subnet
+
+  EffulgencetechVPCprivSN:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref EffulgencetechVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: us-east-1b
+      Tags:
+        - Key: name
+          Value: production-private-subnet
+  
+  EffulgencetechPubRT:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref EffulgencetechVPC
+      Tags:
+        - Key: name
+          Value: production-public-rtb
+
+  EffulgencetechPriRT:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref EffulgencetechVPC
+      Tags:
+        - Key: name
+          Value: production-private-rtb
+
+  EffulgencetechPubRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref EffulgencetechPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref EffulgencetechIGW
+
+Outputs:
+  VpcId:
+    Description: The ID of the VPC
+    Value: !Ref EffulgencetechVPC
+  InternetGatewayId:
+    Description: The ID of the Internet Gateway
+    Value: !Ref EffulgencetechIGW
+  PublicRouteTableId:
+    Description: The ID of the Public Route Table
+    Value: !Ref EffulgencetechPubRT
+  PrivateRouteTableId:
+    Description: The ID of the Private Route Table
+    Value: !Ref EffulgencetechPriRT
+  PublicSubnetId:
+    Description: The ID of the Public Subnet
+    Value: !Ref EffulgencetechVPCpubSN
+  PrivateSubnetId:
+    Description: The ID of the Private Subnet
+    Value: !Ref EffulgencetechVPCprivSN
