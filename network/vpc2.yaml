@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: This template creates a VPC along with subnets, route tables, and an internet gateway.
-Metadata: 
+Metadata: {}
 
-Parameters: 
+Parameters: {}
 
-Mappings: 
+Mappings: {}
 
-Conditions: 
+Conditions: {}
 
 Resources:
   EffulgencetechVPC:
@@ -29,8 +29,8 @@ Resources:
   EffulgencetechVPCGatewayAttachment:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
-      VpcId: !Ref myVPC
-      InternetGatewayId: !Ref myInternetGateway
+      VpcId: !Ref EffulgencetechVPC
+      InternetGatewayId: !Ref EffulgencetechIGW
 
   EffulgencetechVPCpubSN:
     Type: 'AWS::EC2::Subnet'
@@ -72,7 +72,7 @@ Resources:
   EffulgencetechPubRoute:
     Type: 'AWS::EC2::Route'
     Properties:
-      RouteTableId: !Ref EffulgencetechPublicRouteTable
+      RouteTableId: !Ref EffulgencetechPubRT
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref EffulgencetechIGW
 
