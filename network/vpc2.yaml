@@ -2,73 +2,101 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: This template creates a VPC along with subnets, route tables, and an internet gateway.
 Metadata: {}
 
-Parameters: {}
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: The CIDR block for the VPC
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: The CIDR block for the public subnet
+  PrivateSubnetCidr:
+    Type: String
+    Default: 10.0.2.0/24
+    Description: The CIDR block for the private subnet
+  AvailabilityZonePublic:
+    Type: String
+    Default: us-east-1a
+    Description: The availability zone for the public subnet
+  AvailabilityZonePrivate:
+    Type: String
+    Default: us-east-1b
+    Description: The availability zone for the private subnet
 
 Mappings: {}
 
 Conditions: {}
 
 Resources:
+  # VPC resource
   EffulgencetechVPC:
     Type: 'AWS::EC2::VPC'
     Properties:
-      CidrBlock: 10.0.0.0/16
+      CidrBlock: !Ref VpcCidr
       EnableDnsSupport: 'true'
       EnableDnsHostnames: 'true'
       Tags:
-        - Key: name
-          Value: production
+        - Key: Name
+          Value: Effulgence-VPC
 
+  # Internet Gateway resource
   EffulgencetechIGW:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
       Tags:
-        - Key: name
-          Value: production-igw
+        - Key: Name
+          Value: Effulgence-IGW
 
+  # Attach Internet Gateway to VPC
   EffulgencetechVPCGatewayAttachment:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
       VpcId: !Ref EffulgencetechVPC
       InternetGatewayId: !Ref EffulgencetechIGW
 
+  # Public Subnet resource
   EffulgencetechVPCpubSN:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref EffulgencetechVPC
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: !Ref PublicSubnetCidr
       MapPublicIpOnLaunch: 'true'
-      AvailabilityZone: us-east-1a
+      AvailabilityZone: !Ref AvailabilityZonePublic
       Tags:
-        - Key: name
-          Value: production-public-subnet
+        - Key: Name
+          Value: EffulgencetechVPCpubSN
 
+  # Private Subnet resource
   EffulgencetechVPCprivSN:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref EffulgencetechVPC
-      CidrBlock: 10.0.2.0/24
-      AvailabilityZone: us-east-1b
+      CidrBlock: !Ref PrivateSubnetCidr
+      AvailabilityZone: !Ref AvailabilityZonePrivate
       Tags:
-        - Key: name
-          Value: production-private-subnet
+        - Key: Name
+          Value: EffulgencetechVPCprivSN
   
+  # Public Route Table resource
   EffulgencetechPubRT:
     Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId: !Ref EffulgencetechVPC
       Tags:
-        - Key: name
-          Value: production-public-rtb
+        - Key: Name
+          Value: EffulgencetechPubRT
 
+  # Private Route Table resource
   EffulgencetechPriRT:
     Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId: !Ref EffulgencetechVPC
       Tags:
-        - Key: name
-          Value: production-private-rtb
+        - Key: Name
+          Value: EffulgencetechPriRT
 
+  # Route for Public Route Table
   EffulgencetechPubRoute:
     Type: 'AWS::EC2::Route'
     Properties:
@@ -76,22 +104,48 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref EffulgencetechIGW
 
+  # Associate Public Subnet with Public Route Table
+  EffulgencetechPubSubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref EffulgencetechVPCpubSN
+      RouteTableId: !Ref EffulgencetechPubRT
+
+  # Associate Private Subnet with Private Route Table
+  EffulgencetechPrivSubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref EffulgencetechVPCprivSN
+      RouteTableId: !Ref EffulgencetechPriRT
+
 Outputs:
   VpcId:
     Description: The ID of the VPC
     Value: !Ref EffulgencetechVPC
+    Export:
+      Name: !Sub '${AWS::StackName}-EffulgencetechVPC'
   InternetGatewayId:
     Description: The ID of the Internet Gateway
     Value: !Ref EffulgencetechIGW
+    Export:
+      Name: !Sub '${AWS::StackName}-EffulgencetechIGW'
   PublicRouteTableId:
     Description: The ID of the Public Route Table
     Value: !Ref EffulgencetechPubRT
+    Export:
+      Name: !Sub '${AWS::StackName}-EffulgencetechPubRT'
   PrivateRouteTableId:
     Description: The ID of the Private Route Table
     Value: !Ref EffulgencetechPriRT
+    Export:
+      Name: !Sub '${AWS::StackName}-EffulgencetechPriRT'
   PublicSubnetId:
     Description: The ID of the Public Subnet
     Value: !Ref EffulgencetechVPCpubSN
+    Export:
+      Name: !Sub '${AWS::StackName}-EffulgencetechVPCpubSN'
   PrivateSubnetId:
     Description: The ID of the Private Subnet
     Value: !Ref EffulgencetechVPCprivSN
+    Export:
+      Name: !Sub '${AWS::StackName}-EffulgencetechVPCprivSN'

@@ -1,0 +1,14 @@
+[
+    {
+      "ParameterKey": "KeyPairName",
+      "ParameterValue": "mybanyi-useast"
+    },
+    {
+      "ParameterKey": "InstanceType",
+      "ParameterValue": "t2.micro"
+    },
+    {
+      "ParameterKey": "AMI",
+      "ParameterValue": "ami-05b10e08d247fb927"
+    }
+  ]
