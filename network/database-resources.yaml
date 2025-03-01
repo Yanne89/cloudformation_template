@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  DBUsername:
+    Description: The database admin account username
+    Type: String
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  # DBPassword:
+  #   Description: The database admin account password
+  #   Type: String
+  #   NoEcho: true
+  #   MinLength: 8
+  #   MaxLength: 41
+  #   AllowedPattern: '[a-zA-Z0-9]*'
+  #   ConstraintDescription: must contain only alphanumeric characters.
+#These parameters ensure the RDS instance is created with valid credentials while enforcing security best practices.
+  DBSecretarn:
+    Description: The ARN of the secret containing the database credentials
+    Type: String
+#     MinLength: 1
+#     MaxLength: 128
+#     AllowedPattern: '[a-zA-Z0-9:]*'
+#     ConstraintDescription: must contain only alphanumeric characters and colons.
+
+Description: CloudFormation template to create RDS instance and DB subnet group
+
+Resources:
+  DBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties: 
+      DBSubnetGroupDescription: 'Subnet group for RDS instance' # Description of the DB Subnet Group
+      SubnetIds: 
+        - !ImportValue EffulgenceNetwork-PrivateSubnet1Id # Replace with your actual subnet ID
+        - !ImportValue EffulgenceNetwork-PrivateSubnet2Id # Replace with your actual subnet ID
+
+#The DB Subnet Group ensures that RDS runs within a defined VPC and is properly accessible.
+#The SubnetIds property specifies the subnets in which the RDS instance will be created.
+#The subnet IDs must be from the same VPC as the RDS instance.
+#These should be private subnets across at least two Availability Zones for high availability.
+#The DBSubnetGroupDescription property provides a description of the DB Subnet Group.
+#The DBSubnetGroup resource is referenced in the RDSInstance resource to specify the subnets in which the RDS instance will be created.
+
+  RDSInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceIdentifier: 'mydbinstance2' # Identifier for the RDS instance
+      AllocatedStorage: '20' # Storage size in GB
+      DBInstanceClass: 'db.t3.micro' # Instance class type
+      Engine: 'MySQL' # Database engine type
+      EngineVersion: "8.0"
+      MasterUsername: !Ref DBUsername # Reference to the DBUsername parameter instead of hardcoding.
+#This improves security and flexibility.
+      MasterUserPassword: 
+        Fn::Join: 
+          - ''
+          - - '{{resolve:secretsmanager:'
+            - !Ref DBSecretarn
+            - ':SecretString:DBpassword}}'
+      DBSubnetGroupName: !Ref DBSubnetGroup # Reference to the DBSubnetGroup resource
+      VPCSecurityGroups: 
+        - !ImportValue EffulgenceNetwork-DatabaseSGId # Replace with your actual security group ID
+
+#This section ensures that RDS is deployed within a VPC, securely configured, and accessible only by instances within the allowed Security Groups.
+
+Outputs:
+  RDSInstanceId:
+    Description: The ID of the created RDS instance
+    Value: !Ref RDSInstance
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSInstanceId"
+      
+  RDSInstanceEndpoint:
+    Description: The connection endpoint for the RDS instance
+    Value: !GetAtt RDSInstance.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSInstanceEndpoint"
+
+  RDSInstancePort:
+    Description: The port number on which the RDS instance is listening
+    Value: !GetAtt RDSInstance.Endpoint.Port
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSInstancePort"
+
+  DBSubnetGroupName:
+    Description: The name of the DB subnet group
+    Value: !Ref DBSubnetGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-DBSubnetGroupName"

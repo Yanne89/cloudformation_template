@@ -1,0 +1,10 @@
+[
+    {
+      "ParameterKey": "DBUsername",
+      "ParameterValue": "admin"
+    },
+    {
+      "ParameterKey": "DBSecretarn",
+      "ParameterValue": "arn:aws:secretsmanager:us-east-1:715841357798:secret:prod/db/password-8931Ov"
+    }
+  ]

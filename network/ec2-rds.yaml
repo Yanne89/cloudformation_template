@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create EC2 resources with Launch Template, Auto Scaling Group, and RDS.
+
+Parameters:
+  VPCId:
+    Type: String
+    Description: VPC Id
+
+  PublicSubnet1Id:
+    Type: String
+    Description: Public Subnet 1 Id
+
+  PublicSubnet2Id:
+    Type: String
+    Description: Public Subnet 2 Id
+
+  PrivateSubnet1Id:
+    Type: String
+    Description: Private Subnet 1 Id
+
+  PrivateSubnet2Id:
+    Type: String
+    Description: Private Subnet 2 Id
+
+  WebServerSecurityGroupId:
+    Type: String
+    Description: Web Server Security Group Id
+
+  AppServerSecurityGroupId:
+    Type: String
+    Description: Application Server Security Group Id
+
+  DatabaseSecurityGroupId:
+    Type: String
+    Description: Database Security Group Id
+
+  KeyPairName:
+    Type: String
+    Description: Key Pair Name
+
+  DBUsername:
+    Type: String
+    Description: The database admin account username
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: The database admin account password
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: must contain only alphanumeric characters.
+
+Resources:
+  # Launch Template for Web Servers
+  WebServerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: WebServerLaunchTemplate
+      VersionDescription: Initial Version
+      LaunchTemplateData:
+        ImageId: ami-0c55b159cbfafe1f0 # Replace with the latest AMI ID
+        InstanceType: t2.micro
+        KeyName: !Ref KeyPairName
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: true
+            DeviceIndex: 0
+            SubnetId: !Ref PublicSubnet1Id
+            Groups:
+              - !Ref WebServerSecurityGroupId
+
+  # Auto Scaling Group for Web Servers
+  WebServerAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1Id
+        - !Ref PublicSubnet2Id
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebServerLaunchTemplate
+        Version: !GetAtt WebServerLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref MyTargetGroup
+
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyLoadBalancer
+      Subnets:
+        - !Ref PublicSubnet1Id
+        - !Ref PublicSubnet2Id
+      SecurityGroups:
+        - !Ref WebServerSecurityGroupId
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+
+  # Target Group for Load Balancer
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: MyTargetGroup
+      VpcId: !Ref VPCId
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+
+  # Listener for Load Balancer
+  MyListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  # Database Subnet Group
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Database Subnet Group"
+      SubnetIds:
+        - !Ref PrivateSubnet1Id
+        - !Ref PrivateSubnet2Id
+
+  # RDS Database Instance
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: MyDatabase
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: mysql
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroupId
+      MultiAZ: false
+      PubliclyAccessible: false
+    DeletionPolicy: Snapshot
+
+Outputs:
+  # Output Auto Scaling Group Name
+  WebServerAutoScalingGroupName:
+    Description: Auto Scaling Group for Web Servers
+    Value: !Ref WebServerAutoScalingGroup
+
+  # Output the Load Balancer DNS Name
+  LoadBalancerDNSName:
+    Description: Load Balancer DNS Name
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  # Output the RDS Endpoint
+  RDSInstanceEndpoint:
+    Description: The connection endpoint of the RDS instance
+    Value: !GetAtt RDSInstance.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-RDS-Endpoint"
+
+  # Output the RDS Port
+  RDSPort:
+    Description: The port number for the RDS instance
+    Value: !GetAtt RDSInstance.Endpoint.Port
+    Export:
+      Name: !Sub "${AWS::StackName}-RDS-Port"
+
+# RDS MySQL Database – A managed database in private subnets.
+# Database Subnet Group – Ensures RDS is deployed across multiple private subnets.
+# Security Best Practices – RDS is not publicly accessible and only accepts traffic from the Application Server Security Group.
+# Outputs – Provides RDS Endpoint and Port to easily connect the application.
